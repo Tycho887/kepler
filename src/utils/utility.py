@@ -1,63 +1,39 @@
 import numpy as np
 import math
-import json
+from sgp4.api import Satrec
+from sgp4.conveniences import jday
+import math
 
 
-# Constants
-MU_EARTH = 398600.4418  # Earth's gravitational parameter (km^3/s^2)
-SECONDS_PER_DAY = 86400.0  # Seconds in a day
 
-
-def synodic_period(period1, period2):
-	"""
-	Computes the synodic period between two orbital periods.
-	"""
-	return 1 / np.abs(1 / period1 - 1 / period2)
-
-
-def load_tle_data(file_name):
+def extract_mean_motion(tle_data):
     """
-	Load TLE data from a JSON file.
-	"""
-	try:
-		with open(file_name, "r") as json_file:
-			data = json.load(json_file)
-		return data
-	except Exception as e:
-		print(f"Error loading TLE data: {e}")
-		return None
-
-
-def tle_to_keplerian(mean_motion, eccentricity, inclination, raan, arg_perigee, mean_anomaly):
+    Extract the mean motion (revolutions per day) from TLE data.
     """
-    Convert TLE parameters to Keplerian elements.
+    satellite = Satrec.twoline2rv(tle_data[2], tle_data[3])
+    mean_motion = satellite.no_kozai * 1440 / (2 * math.pi)  # Convert radians per minute to rev/day
+    return mean_motion
+
+def synodic_period(tle_data1, tle_data2):
+    """
+    Calculate the synodic period between two satellites.
 
     Parameters:
-    - mean_motion (float): Revolutions per day.
-    - eccentricity (float): Eccentricity (decimal format, no implied point).
-    - inclination (float): Inclination (degrees).
-    - raan (float): Right Ascension of Ascending Node (degrees).
-    - arg_perigee (float): Argument of Perigee (degrees).
-    - mean_anomaly (float): Mean Anomaly (degrees).
+    - tle_data1 (tuple): TLE data for the first satellite (name, line1, line2).
+    - tle_data2 (tuple): TLE data for the second satellite (name, line1, line2).
 
     Returns:
-    - dict: Keplerian elements.
+    - float: Synodic period in minutes.
     """
-    # Mean Motion (n) to radians per second
-    n_rad_per_sec = (mean_motion * 2 * math.pi) / SECONDS_PER_DAY
-    
-    # Semi-Major Axis (a) from Kepler's Third Law
-    semi_major_axis = (MU_EARTH / (n_rad_per_sec ** 2)) ** (1 / 3)
-    
-    # Return Keplerian elements
-    keplerian_elements = {
-        "Semi-Major Axis (km)": semi_major_axis,
-        "Eccentricity": eccentricity,
-        "Inclination (deg)": inclination,
-        "RAAN (deg)": raan,
-        "Argument of Perigee (deg)": arg_perigee,
-        "Mean Anomaly (deg)": mean_anomaly
-    }
-    
-    return keplerian_elements
+    # Extract mean motions (revolutions per day) from the TLE data
+    mean_motion1 = extract_mean_motion(tle_data1)
+    mean_motion2 = extract_mean_motion(tle_data2)
 
+    # Compute orbital periods (in minutes)
+    period1 = 1440 / mean_motion1
+    period2 = 1440 / mean_motion2
+
+    # Calculate the synodic period
+    synodic_period = abs(1 / (1 / period1 - 1 / period2))
+
+    return synodic_period

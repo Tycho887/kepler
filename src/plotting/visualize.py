@@ -55,3 +55,22 @@ def plot_orbit_3d_with_earth(times, positions):
     ax.set_zlim([-max_val, max_val])
 
     plt.show()
+
+
+def plot_distance(times: list, distances: np.ndarray):
+    """
+    Plots the distance between two satellites over time.
+    
+    :param times: Array of datetime objects representing the time at each step
+    :param positions_1: Array of position vectors for satellite 1
+    :param positions_2: Array of position vectors for satellite 2
+    """
+
+    # Plot the distance between the two satellites over time
+    plt.figure(figsize=(10, 6))
+    plt.plot(times, distances)
+    plt.xlabel('Time (UTC)')
+    plt.ylabel('Distance (km)')
+    plt.title('Distance Between Satellites Over Time')
+    plt.grid(True)
+    plt.show()

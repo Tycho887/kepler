@@ -1,37 +1,49 @@
 import numpy as np
-from src.simulation import compute_position
-from src.plotting import plot_3d
+from src.simulation import SatellitePropagator
+from src.plotting import plot_3d, plot_distance
 from src.database import fetch_tle_data
+import numpy as np
+from datetime import datetime
+from src.utils import synodic_period
 
 
-class Satellite:
-	def __init__(self, tle_data: tuple):
-		self.name = tle_data[1]
-		self.tle_line1 = tle_data[2]
-		self.tle_line2 = tle_data[3]
+def simulate_orbit(tle_data, minutes_into_future, step_size):
+	# Initialize the SatellitePropagator
+	satellite = SatellitePropagator(tle_data)
 
-	def get_keplerian(self):
-		pass
+	# Propagate the satellite's orbit
+	try:
+		result = satellite.propagate(minutes_into_future, step_size)
+		print("Time:", result["times"])
+		print("Position (km):", result["positions_km"])
+		print("Velocity (km/s):", result["velocities_km_s"])
+	except RuntimeError as e:
+		print("Error:", e)
+	
+	return result["times"], result["positions_km"], result["velocities_km_s"]
+	
 
-	def compute_position(self, time_limit, time_step=1):
-
-		times = np.arange(0, time_limit, time_step)
-		positions = np.zeros((len(times), 3))
-
-		for i, time in enumerate(times):
-			positions[i] = compute_position(self.mean_anomaly, self.eccentricity, self.semi_major_axis, self.inclination, self.longitude_of_ascending_node, self.argument_perigee, time)
-		
-		return positions
-
-class SimulationPair:
-	def __init__(self, satellite1, satellite2):
-		self.satellite1 = satellite1
-		self.satellite2 = satellite2
-
+def distance_over_time(tle_data1, tle_data2, minutes_into_future, step_size):
+	# Simulate the orbits of the two satellites
+	times1, positions1, velocities1 = simulate_orbit(tle_data1, minutes_into_future, step_size)
+	times2, positions2, velocities2 = simulate_orbit(tle_data2, minutes_into_future, step_size)
+	
+	# Calculate the distance between the two satellites at each time step
+	distances = np.linalg.norm(np.array(positions1) - np.array(positions2), axis=1)
+	
+	# Plot the distance between the two satellites over time
+	plot_distance(times1, distances)
 
 if __name__ == "__main__":
-	tle_ISS = fetch_tle_data(name="ISS (ZARYA)")
-	tle_Hubble = fetch_tle_data(name="HST")
 
-	iss = Satellite(tle_ISS)
-	hubble = Satellite(tle_Hubble)
+	ISS = fetch_tle_data(name="ISS (ZARYA)")
+	CSS = fetch_tle_data(name="CSS (TIANHE)")
+	TESS = fetch_tle_data(name="TESS")
+
+	# Calculate the synodic period between the two satellites
+
+	synodic_period_minutes = synodic_period(CSS, ISS)
+
+	print("Synodic Period:", synodic_period_minutes, "minutes")
+
+	distance_over_time(CSS, ISS, minutes_into_future=synodic_period_minutes, step_size=1)

@@ -1,1 +1,1 @@
-from src.simulation.orbit_computation import compute_position, orbital_to_cartesian
+from src.simulation.SGP4 import SatellitePropagator
