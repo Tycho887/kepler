@@ -79,6 +79,7 @@ def compute_position(period, eccentricity, semi_major_axis, inclination, raan, a
 
     # Cartesian position in 3D space
     position = orbital_to_cartesian(semi_major_axis, eccentricity, inclination, raan, arg_periapsis, true_anomaly)
+    
     return position
 
 

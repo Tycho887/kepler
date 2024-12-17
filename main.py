@@ -1,5 +1,5 @@
 import numpy
-from orbit_computation import *
+from src.simulation.orbit_computation import *
 import matplotlib.pyplot as plt
 
 class Satellite:
@@ -27,3 +27,7 @@ class SimulationPair:
 	def __init__(self, satellite1, satellite2):
 		self.satellite1 = satellite1
 		self.satellite2 = satellite2
+
+
+if __name__ == "__main__":
+	
