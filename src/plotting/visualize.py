@@ -71,6 +71,6 @@ def plot_distance(times: list, distances: np.ndarray):
     plt.plot(times, distances)
     plt.xlabel('Time (UTC)')
     plt.ylabel('Distance (km)')
-    plt.title('Distance Between Satellites Over Time')
+    plt.title('Distance Between ISS and CSS over time')
     plt.grid(True)
     plt.show()
