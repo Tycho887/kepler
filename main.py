@@ -1,21 +1,21 @@
-import numpy
-from src.simulation.orbit_computation import *
-import matplotlib.pyplot as plt
+import numpy as np
+from src.simulation import compute_position
+from src.plotting import plot_3d
+from src.database import fetch_tle_data
+
 
 class Satellite:
-	def __init__(self, name: str, semi_major_axis, eccentricity, inclination, longitude_of_ascending_node, argument_perigee, mean_anomaly, epoch):
-		self.name = name
-		self.semi_major_axis = semi_major_axis
-		self.eccentricity = eccentricity
-		self.inclination = inclination
-		self.argument_perigee = argument_perigee
-		self.longitude_of_ascending_node = longitude_of_ascending_node
-		self.mean_anomaly = mean_anomaly
-		self.epoch = epoch
+	def __init__(self, tle_data: tuple):
+		self.name = tle_data[1]
+		self.tle_line1 = tle_data[2]
+		self.tle_line2 = tle_data[3]
+
+	def get_keplerian(self):
+		pass
 
 	def compute_position(self, time_limit, time_step=1):
 
-		times = numpy.arange(0, time_limit, time_step)
+		times = np.arange(0, time_limit, time_step)
 		positions = np.zeros((len(times), 3))
 
 		for i, time in enumerate(times):
@@ -30,4 +30,8 @@ class SimulationPair:
 
 
 if __name__ == "__main__":
-	pass
+	tle_ISS = fetch_tle_data(name="ISS (ZARYA)")
+	tle_Hubble = fetch_tle_data(name="HST")
+
+	iss = Satellite(tle_ISS)
+	hubble = Satellite(tle_Hubble)

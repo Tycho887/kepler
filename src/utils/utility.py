@@ -1,8 +1,32 @@
+import numpy as np
 import math
+import json
+
 
 # Constants
 MU_EARTH = 398600.4418  # Earth's gravitational parameter (km^3/s^2)
 SECONDS_PER_DAY = 86400.0  # Seconds in a day
+
+
+def synodic_period(period1, period2):
+	"""
+	Computes the synodic period between two orbital periods.
+	"""
+	return 1 / np.abs(1 / period1 - 1 / period2)
+
+
+def load_tle_data(file_name):
+    """
+	Load TLE data from a JSON file.
+	"""
+	try:
+		with open(file_name, "r") as json_file:
+			data = json.load(json_file)
+		return data
+	except Exception as e:
+		print(f"Error loading TLE data: {e}")
+		return None
+
 
 def tle_to_keplerian(mean_motion, eccentricity, inclination, raan, arg_perigee, mean_anomaly):
     """
@@ -37,13 +61,3 @@ def tle_to_keplerian(mean_motion, eccentricity, inclination, raan, arg_perigee, 
     
     return keplerian_elements
 
-# Example Usage with ISS TLE Line 2:
-mean_motion = 15.49709696  # From Line 2
-eccentricity = 0.0008967   # Decimal implied
-inclination = 51.6448      # Degrees
-raan = 85.7573             # Degrees
-arg_perigee = 60.4576      # Degrees
-mean_anomaly = 300.8325    # Degrees
-
-keplerian = tle_to_keplerian(mean_motion, eccentricity, inclination, raan, arg_perigee, mean_anomaly)
-print("Keplerian Elements:", keplerian)
