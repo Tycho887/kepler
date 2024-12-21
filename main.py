@@ -1,59 +1,87 @@
 import numpy as np
-from src.simulation import SatellitePropagator
-from src.plotting import plot_3d, plot_distance
-from src.database import fetch_tle_data
-import numpy as np
+from lib.simulation import SatellitePropagator
+from lib.plotting import plot_3d, plot_distance
+import lib.database as db
 from datetime import datetime
-from src.utils import synodic_period
+import lib.utils as utils
+import random
+import math
 
+def propagate_orbits(satellites, minutes_into_future, step_size):
+	"""Propagate the orbits of satellites."""
+	for sat in satellites.values():
+		print(f"Propagating orbit for {sat.name}...")
+		try:
+			sat.propagate(minutes_into_future, step_size)
+		except RuntimeError as e:
+			print(f"Error propagating orbit for {sat.name}: {e}")
+			sat.error_code = e
 
-def simulate_orbit(tle_data, minutes_into_future, step_size):
-	# Initialize the SatellitePropagator
-	satellite = SatellitePropagator(tle_data)
+def initialize_satellites(indexes):
+	"""Initialize satellites based on given indexes."""
+	satellites = {}
+	for index in indexes:
+		satellite = SatellitePropagator(db.fetch_tle_data_single(index))
+		satellites[index] = satellite
+	return satellites
 
-	# Propagate the satellite's orbit
-	try:
-		result = satellite.propagate(minutes_into_future, step_size)
-		print("Time:", result["times"])
-		print("Position (km):", result["positions_km"])
-		print("Velocity (km/s):", result["velocities_km_s"])
-	except RuntimeError as e:
-		print("Error:", e)
-	
-	return result["times"], result["positions_km"], result["velocities_km_s"]
-	
+def compute_closest_approaches(satellites, pair_data_dict):
+	"""Calculate the closest approach for satellite pairs."""
+	for pair_id, pair_info in pair_data_dict.items():
+		id1, id2 = pair_info["sats"]
+		sat1, sat2 = satellites[id1], satellites[id2]
+		positions1, positions2 = sat1.positions, sat2.positions
+		
+		min_distance, min_id = utils.closest_distance(positions1, positions2)
+		pair_info["min_distance"] = min_distance
+		pair_info["min_distance_time"] = sat1.times[min_id]
+	return pair_data_dict
 
-def distance_over_time(tle_data1, tle_data2, minutes_into_future, step_size):
-	# Simulate the orbits of the two satellites
-	times1, positions1, velocities1 = simulate_orbit(tle_data1, minutes_into_future, step_size)
-	times2, positions2, velocities2 = simulate_orbit(tle_data2, minutes_into_future, step_size)
-	
-	# Calculate the distance between the two satellites at each time step
-	distances = np.linalg.norm(np.array(positions1) - np.array(positions2), axis=1)
-	# minimum distance and relative velocity
-	min_distance = np.min(distances)
-	min_distance_index = np.argmin(distances)
-	min_distance_time = times1[min_distance_index]
-	min_distance_velocity = np.linalg.norm(np.array(velocities1[min_distance_index]) - np.array(velocities2[min_distance_index]))
-	
-	print("Minimum Distance:", min_distance, "km")
-	print("Time of Minimum Distance:", min_distance_time)
-	print("Relative Velocity at Minimum Distance:", min_distance_velocity, "km/s")
+def detect_threats(satellites, pair_data_dict, threshold):
+	"""Detect potential threats based on minimum distances."""
+	threat_flag = False
+	for pair_id, pair_info in pair_data_dict.items():
+		if pair_info["min_distance"] < threshold:
+			threat_flag = True
+			sat1_name = satellites[pair_info["sats"][0]].name
+			sat2_name = satellites[pair_info["sats"][1]].name
+			print(f"Close approach detected between {sat1_name} and {sat2_name} at {pair_info['min_distance_time']}")
+			print(f"Minimum distance: {pair_info['min_distance']:.2f} km")
 
-	# Plot the distance between the two satellites over time
-	plot_distance(times1, distances)
+	if not threat_flag:
+		print("No close approaches detected.")
+
+def filter_error_satellites(satellites, indexes):
+	"""Filter out satellites with errors."""
+	valid_indexes = [id for id in indexes if satellites[id].error_code is None]
+	return {id: satellites[id] for id in valid_indexes}, valid_indexes
 
 if __name__ == "__main__":
+	N = 10
+	days = 10
+	step_size = 0.1  # Step size in minutes
+	propagation_error = 1.5 * days  # Error threshold in kilometers
 
-	ISS = fetch_tle_data(name="ISS (ZARYA)")
-	CSS = fetch_tle_data(name="CSS (TIANHE)")
-	HST = fetch_tle_data(name="HST")
+	# Generate satellite indexes
+	total_satellites = db.number_of_satellites()
+	indexes = utils.generate_unique_random_integers(total_satellites, N)
 
-	# Calculate the synodic period between the two satellites
+	# Initialize satellites and pair dictionary
+	satellites = initialize_satellites(indexes)
+	max_comparisons = math.comb(N, 2)
+	pairs = utils.generate_satellite_pair_dict(indexes, max_comparisons)
 
-	synodic_period_minutes = synodic_period(CSS, ISS)
+	# print(pairs)
 
-	print("Synodic Period:", synodic_period_minutes, "minutes")
+	# Propagate satellite orbits
+	print("Propagating orbits...")
+	propagate_orbits(satellites, 60 * 24 * days, step_size)
 
-	distance_over_time(CSS, ISS, minutes_into_future=synodic_period_minutes, step_size=1)
-	distance_over_time(HST, ISS, minutes_into_future=synodic_period_minutes, step_size=1)
+	# Filter out satellites with errors
+	satellites, indexes = filter_error_satellites(satellites, indexes)
+
+	# Compute closest approaches
+	pairs = compute_closest_approaches(satellites, pairs)
+
+	# Detect potential threats
+	detect_threats(satellites, pairs, propagation_error)

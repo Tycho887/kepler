@@ -1,1 +1,0 @@
-from src.simulation.SGP4 import SatellitePropagator

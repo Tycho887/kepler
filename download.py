@@ -7,7 +7,7 @@ from datetime import datetime
 # Constants
 TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"  # Active satellites TLE
 
-storage_dir = "../../database/"
+storage_dir = "database/"
 
 DB_NAME = storage_dir + "satellites_tle.db"
 JSON_FILE = storage_dir + "satellites_tle.json"
