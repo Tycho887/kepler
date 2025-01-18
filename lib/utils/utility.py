@@ -106,7 +106,7 @@ def generate_satellite_pair_dict(integers: list, num_pairs: int) -> dict:
             "sats": list(pair),
             "min_distance": None,
             "min_distance_time": None,
-            "min_distance_velocity": None
+            "close_approach": False,
         }
         for pair_id, pair in enumerate(pairs_set)
     }
@@ -140,7 +140,7 @@ def datetime_to_julian(date: datetime):
         jd_int = int(jd)
         fr = jd - jd_int + fractional_day
         return jd_int, fr
-
+    
 
 if __name__ == "__main__":
     print(generate_satellite_pair_dict([1, 2, 3, 4, 5], 10))

@@ -1,0 +1,4 @@
+numpy
+sgp4
+pandas
+matplotlib

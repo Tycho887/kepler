@@ -16,6 +16,7 @@ class SatellitePropagator:
         Args:
             tle_data (tuple): A tuple containing the satellite ID, name, and two TLE lines, plus start time.
         """
+        self.TLE = tle_data
         self.id = tle_data[0]
         self.name = tle_data[1]
         self.satellite = Satrec.twoline2rv(tle_data[2], tle_data[3], WGS72)
@@ -35,6 +36,7 @@ class SatellitePropagator:
         try:
             self._propagate(minutes_into_future, step_size)
         except Exception as e:
+            print(e)
             self.error_code = e
 
     def _propagate(self, minutes_into_future: float, step_size: float):
@@ -62,8 +64,7 @@ class SatellitePropagator:
 
         self._position_data = {
             "times": np.array(times),
-            "positions_km": np.array(positions),
-            "velocities_km_s": np.array(velocities),
+            "positions_km": np.array(positions,dtype=np.float32)
         }
 
     @property
