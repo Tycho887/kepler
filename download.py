@@ -10,7 +10,7 @@ TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle" 
 storage_dir = "database/"
 
 DB_NAME = storage_dir + "satellites_tle.db"
-JSON_FILE = storage_dir + "satellites_tle.json"
+# JSON_FILE = storage_dir + "satellites_tle.json"
 
 def fetch_tle_data(url):
     """
@@ -100,8 +100,8 @@ def main():
     satellites = parse_tle_data(tle_text)
     print(f"Fetched and parsed data for {len(satellites)} satellites.")
 
-    # Step 3: Save to JSON
-    save_to_json(satellites, JSON_FILE)
+    # # Step 3: Save to JSON
+    # save_to_json(satellites, JSON_FILE)
 
     # Step 4: Save to SQLite
     save_to_sqlite(satellites, DB_NAME)
