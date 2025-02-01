@@ -1,3 +1,5 @@
 myenv/*
 # Ignore all __pycache__ directories
 **/__pycache__/*
+# Ignore all files above 100MB
+datasets/tle495510.csv
