@@ -1,114 +1,95 @@
-from lib import run_sim
-import tqdm
+import sqlite3
 import pandas as pd
+from lib import run_sim
 
-def get_TLE_info(SatellitePropagator):
+def query_orbital_data(db_path):
     """
-    Extracts orbital parameters and other coefficients from TLE data.
+    Query the orbital_data table from the database.
     
     Parameters:
-        TLE_data (tuple): Tuple containing satellite name, international designator, and two-line elements.
-
+        db_path (str): Path to the SQLite database.
+    
     Returns:
-        dict: Dictionary containing orbital parameters and coefficients.
+        pd.DataFrame: DataFrame containing the orbital data.
     """
-    # Extract the relevant info for constructing the dataset
-
-    TLE_data = SatellitePropagator.TLE
-
-    line1 = TLE_data[2]
-    line2 = TLE_data[3]
-
-    epoch_day = float(line1[20:32])
-    ballistic_coefficient = float(line1[33:43])
-
-    inclination = float(line2[8:16])
-    right_ascension_of_the_ascending_node = float(line2[17:25])
-    eccentricity = float("0." + line2[26:33])  # Add leading 0 and convert to decimal
-    argument_of_perigee = float(line2[34:42])
-    mean_anomaly = float(line2[43:51])
-    mean_motion = float(line2[52:63])
-
-    # Calculate apogee and perigee (assume Earth radius = 6371 km)
-    earth_radius_km = 6371.0
-    semi_major_axis = (86400 / mean_motion / (2 * 3.141592653589793)) ** (2 / 3)
-    apogee = semi_major_axis * (1 + eccentricity) - earth_radius_km
-    perigee = semi_major_axis * (1 - eccentricity) - earth_radius_km
-    # Calculate the orbital period
-    orbital_period = 2 * 3.141592653589793 * (semi_major_axis ** 1.5) / (mean_motion * 86400)
-
-    return {
-        "epoch day": epoch_day,
-        "ballistic coefficient": ballistic_coefficient,
-        "inclination": inclination,
-        "right ascension of the ascending node": right_ascension_of_the_ascending_node,
-        "eccentricity": eccentricity,
-        "argument of perigee": argument_of_perigee,
-        "mean anomaly": mean_anomaly,
-        "mean motion": mean_motion,
-        "apogee": apogee,
-        "perigee": perigee,
-        "orbital period": orbital_period
-    }
-
-def orbit_difference(tle1, tle2):
+    conn = sqlite3.connect(db_path)
+    query = """
+    SELECT satellite_id, epoch, mean_motion, eccentricity, inclination, raan, 
+           argument_of_perigee, mean_anomaly, perigee, apogee, period, 
+           semi_major_axis, orbital_energy, orbital_angular_momentum, rev_number, 
+           bstar, mean_motion_derivative, cluster
+    FROM orbital_data
     """
-    Calculates differences in orbital parameters between two TLE datasets.
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
+def calculate_differences(row1, row2):
+    """
+    Calculate differences in orbital parameters between two satellites.
     
     Parameters:
-        tle1 (tuple): TLE data for the first satellite.
-        tle2 (tuple): TLE data for the second satellite.
-
+        row1 (pd.Series): Orbital data for the first satellite.
+        row2 (pd.Series): Orbital data for the second satellite.
+    
     Returns:
         dict: Dictionary containing the differences in orbital parameters.
     """
-    info1 = get_TLE_info(tle1)
-    info2 = get_TLE_info(tle2)
-
-    synodic_period = abs(1 / (1 / info1["orbital period"] - 1 / info2["orbital period"]))
-
-    return {
-        "inclination difference": info1["inclination"] - info2["inclination"],
-        "eccentricity difference": info1["eccentricity"] - info2["eccentricity"],
-        "ascending node difference": info1["right ascension of the ascending node"] - info2["right ascension of the ascending node"],
-        "argument of perigee difference": info1["argument of perigee"] - info2["argument of perigee"],
-        "mean anomaly difference": info1["mean anomaly"] - info2["mean anomaly"],
-        "mean motion difference": info1["mean motion"] - info2["mean motion"],
-        "apogee difference": info1["apogee"] - info2["apogee"],
-        "perigee difference": info1["perigee"] - info2["perigee"],
-        "orbital period difference": info1["orbital period"] - info2["orbital period"],
-        "synodic period": synodic_period
+    differences = {
+        "inclination_diff": row1["inclination"] - row2["inclination"],
+        "eccentricity_diff": row1["eccentricity"] - row2["eccentricity"],
+        "raan_diff": row1["raan"] - row2["raan"],
+        "argument_of_perigee_diff": row1["argument_of_perigee"] - row2["argument_of_perigee"],
+        "mean_anomaly_diff": row1["mean_anomaly"] - row2["mean_anomaly"],
+        "mean_motion_diff": row1["mean_motion"] - row2["mean_motion"],
+        "apogee_diff": row1["apogee"] - row2["apogee"],
+        "perigee_diff": row1["perigee"] - row2["perigee"],
+        "period_diff": row1["period"] - row2["period"],
+        "semi_major_axis_diff": row1["semi_major_axis"] - row2["semi_major_axis"],
+        "orbital_energy_diff": row1["orbital_energy"] - row2["orbital_energy"],
+        "orbital_angular_momentum_diff": row1["orbital_angular_momentum"] - row2["orbital_angular_momentum"],
+        "rev_number_diff": row1["rev_number"] - row2["rev_number"],
+        "bstar_diff": row1["bstar"] - row2["bstar"],
+        "mean_motion_derivative_diff": row1["mean_motion_derivative"] - row2["mean_motion_derivative"],
+        "cluster_diff": row1["cluster"] - row2["cluster"]
     }
+    return differences
 
-def build_dataset(satellites: dict, pairs: dict, indexes: list):
+def build_dataset(db_path, pairs, indexes):
     """
-    Constructs a dataset from TLE data of specified satellites and pairs.
+    Constructs a dataset from orbital data of specified satellites and pairs.
     
     Parameters:
-        satellites (list): List of TLE datasets for satellites.
-        pairs (list): List of pairs of satellite indices to compare.
+        db_path (str): Path to the SQLite database.
+        pairs (dict): Dictionary of pairs of satellite indices to compare.
         indexes (list): Target variable indicating whether a close approach is detected.
     
     Returns:
         pd.DataFrame: DataFrame containing satellite orbital data and differences.
     """
+    orbital_data = query_orbital_data(db_path)
     data = []
 
     for i, _dict in pairs.items():
-
         idx1, idx2 = _dict["sats"]
 
-        sat1 = satellites[idx1]
-        sat2 = satellites[idx2]
+        # Check if satellite IDs exist in the orbital_data table
+        if idx1 not in orbital_data["satellite_id"].values:
+            print(f"Warning: satellite_id {idx1} not found in orbital_data table. Skipping pair {i}.")
+            continue
+        if idx2 not in orbital_data["satellite_id"].values:
+            print(f"Warning: satellite_id {idx2} not found in orbital_data table. Skipping pair {i}.")
+            continue
 
-        info1 = get_TLE_info(sat1)
-        info2 = get_TLE_info(sat2)
-        differences = orbit_difference(sat1, sat2)
+        sat1_data = orbital_data[orbital_data["satellite_id"] == idx1].iloc[0]
+        sat2_data = orbital_data[orbital_data["satellite_id"] == idx2].iloc[0]
+
+        differences = calculate_differences(sat1_data, sat2_data)
 
         # Combine data into a single flat structure for each pair
         row = {
-            **{f"sat1_{key}": value for key, value in info1.items()},
-            **{f"sat2_{key}": value for key, value in info2.items()},
+            **{f"sat1_{key}": value for key, value in sat1_data.items()},
+            **{f"sat2_{key}": value for key, value in sat2_data.items()},
             **differences,
             "close_approach": _dict["close_approach"]
         }
@@ -118,8 +99,7 @@ def build_dataset(satellites: dict, pairs: dict, indexes: list):
     df = pd.DataFrame(data)
     return df
 
-
-def store_dataset(df):
+def store_dataset(df, filename):
     """
     Stores the dataset to a CSV file.
     
@@ -127,22 +107,17 @@ def store_dataset(df):
         df (pd.DataFrame): DataFrame containing the dataset.
         filename (str): Name of the file to store the dataset.
     """
-
-    filename = f"datasets/tle{len(df)}.csv"
-    
-
     df.to_csv(filename, index=False)
 
-
 if __name__ == "__main__":
+    db_path = "database/satellites_tle.db"
+    N = 10
+    days = 10
+    step_size = 0.1  # Step size in minutes
+    daily_error = 2.0  # Error in kilometers per day
 
-	N = 200
-	days = 10
-	step_size = 0.1  # Step size in minutes
-	daily_error = 2.0  # Error in kilometers per day
+    sats, pairs, indexes = run_sim(N, days, step_size, daily_error)
 
-	sats, pairs, indexes = run_sim(N, days, step_size, daily_error)
+    df = build_dataset(db_path, pairs, indexes)
 
-	df = build_dataset(sats, pairs, indexes)
-
-	store_dataset(df)
+    store_dataset(df, f"datasets/tle{len(df)}.csv")
