@@ -12,7 +12,25 @@ db_structure = {
         "name": "TEXT",
         "line1": "TEXT",
         "line2": "TEXT",
-        "timestamp": "TEXT"}
+        "timestamp": "TEXT"},
+	"orbital_data": {
+        "id": "INTEGER PRIMARY KEY",
+        "satellite_id": "INTEGER",
+        "epoch": "TEXT",
+        "mean_motion": "REAL",
+        "eccentricity": "REAL",
+        "inclination": "REAL",
+		"perigee": "REAL",
+		"apogee": "REAL",
+		"period": "REAL",
+        "argument_of_perigee": "REAL",
+        "raan": "REAL",
+        "mean_anomaly": "REAL",
+        "mean_motion_derivative": "REAL",
+        "mean_motion_sec_derivative": "REAL",
+        "bstar": "REAL",
+        "rev_number": "INTEGER"
+    }
 }
 
 # We create a decorator function that handles the connection to the database and closes it after the function is executed.

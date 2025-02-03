@@ -26,7 +26,7 @@ def custom_objective(y_true, y_pred):
     return grad, hess
 
 
-def recall_at_precision(y_true, y_pred, precision_threshold=0.2):
+def recall_at_precision(y_true, y_pred, precision_threshold=0.5):
     """
     Custom scorer to optimize recall at a minimum precision.
     """
@@ -65,13 +65,13 @@ def train_model(data: pd.DataFrame):
 
     # Define hyperparameter distributions for RandomizedSearchCV
     param_dist = {
-        "xgb__max_depth": randint(3, 10),  # Range for max_depth
+        "xgb__max_depth": randint(3, 15),  # Range for max_depth
         "xgb__learning_rate": uniform(0.01, 0.15),  # Range for learning_rate
         "xgb__subsample": uniform(0.6, 0.4),  # Range for subsample
         "xgb__colsample_bytree": uniform(0.6, 0.4),  # Range for colsample_bytree
-        "xgb__lambda": uniform(0.25, 1),  # Range for L2 regularization (lambda)
-        "xgb__alpha": uniform(0.25, 1),  # Range for L1 regularization (alpha)
-        "xgb__n_estimators": randint(50, 300),  # Range for n_estimators
+        "xgb__lambda": uniform(0, 2),  # Range for L2 regularization (lambda)
+        "xgb__alpha": uniform(0, 2),  # Range for L1 regularization (alpha)
+        "xgb__n_estimators": randint(50, 200),  # Range for n_estimators
         "xgb__scale_pos_weight": [None, (y_train == 0).sum() / (y_train == 1).sum()],  # Optional
     }
 
