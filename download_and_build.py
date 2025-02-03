@@ -5,6 +5,7 @@ import logging
 from typing import List, Dict, Optional, Tuple
 from skyfield.api import EarthSatellite, load
 import math
+import tqdm
 
 # Constants
 TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"
@@ -97,7 +98,7 @@ class DatabaseHandler:
                         satellite_id, epoch, mean_motion, eccentricity, inclination,
                         raan, argument_of_perigee, mean_anomaly, perigee, apogee, period, semi_major_axis, orbital_energy, orbital_angular_momentum,
                         rev_number, bstar, mean_motion_derivative, cluster
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, )
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     data["satellite_id"], data["epoch"], data["mean_motion"], data["eccentricity"],
                     data["inclination"], data["raan"], data["argument_of_perigee"], data["mean_anomaly"],
@@ -106,6 +107,14 @@ class DatabaseHandler:
                 ))
             conn.commit()
             logging.info(f"Inserted {len(orbital_data)} orbital records into the database.")
+
+    def tle_data_exists(self) -> bool:
+        """Check if TLE data exists in the database."""
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM tle_data")
+            count = cursor.fetchone()[0]
+            return count > 0
 
 
 class TLEProcessor:
@@ -147,7 +156,7 @@ class TLEProcessor:
         eccentricity = satellite.model.ecco  # Eccentricity
         argument_of_perigee = satellite.model.argpo  # Argument of perigee in radians
         mean_anomaly = satellite.model.mo  # Mean anomaly in radians
-        mean_motion = satellite.model.no  # Mean motion in revolutions per day
+        mean_motion = float(line2[52:63])  # Revolutions per day
         bstar = satellite.model.bstar  # Drag coefficient (B*)
 
         # Calculate additional parameters
@@ -156,7 +165,6 @@ class TLEProcessor:
 
         # Semi-major axis (in km)
         semi_major_axis = (mu / ((mean_motion * 2 * math.pi / 86400) ** 2)) ** (1 / 3) / 1000
-
         # Apogee and perigee (in km)
         apogee = semi_major_axis * (1 + eccentricity) - earth_radius_km
         perigee = semi_major_axis * (1 - eccentricity) - earth_radius_km
@@ -201,25 +209,36 @@ def main():
     # Initialize database handler
     db_handler = DatabaseHandler(DB_NAME)
 
-    # Fetch TLE data
-    tle_text = TLEProcessor.fetch_tle_data(TLE_URL)
-    if not tle_text:
-        logging.error("No TLE data fetched. Exiting.")
+    # Check if TLE data already exists in the database
+    if not db_handler.tle_data_exists():
+        logging.info("TLE data not found in database. Fetching from API...")
+        # Fetch TLE data
+        tle_text = TLEProcessor.fetch_tle_data(TLE_URL)
+        if not tle_text:
+            logging.error("No TLE data fetched. Exiting.")
+            return
+
+        # Parse TLE data
+        satellites = TLEProcessor.parse_tle_data(tle_text)
+        logging.info(f"Fetched and parsed data for {len(satellites)} satellites.")
+
+        # Save TLE data to database
+        db_handler.insert_tle_data(satellites)
+    else:
+        logging.info("TLE data already exists in the database. Skipping API request.")
+
+    # Fetch TLE data from the database
+    satellites = db_handler.execute_query("SELECT name, line1, line2 FROM tle_data")
+    if not satellites:
+        logging.error("No TLE data found in the database. Exiting.")
         return
-
-    # Parse TLE data
-    satellites = TLEProcessor.parse_tle_data(tle_text)
-    logging.info(f"Fetched and parsed data for {len(satellites)} satellites.")
-
-    # Save TLE data to database
-    db_handler.insert_tle_data(satellites)
 
     # Extract and save orbital data
     orbital_data = []
-    for satellite in satellites:
-        params = TLEProcessor.extract_orbital_parameters(satellite["line1"], satellite["line2"])
+    for satellite in tqdm.tqdm(satellites, desc="Processing TLE data"):
+        params = TLEProcessor.extract_orbital_parameters(satellite[1], satellite[2])
         orbital_data.append({
-            "satellite_id": satellite["name"],  # Assuming name is unique; use ID if available
+            "satellite_id": satellite[0],  # Assuming name is unique; use ID if available
             **params
         })
     db_handler.insert_orbital_data(orbital_data)
